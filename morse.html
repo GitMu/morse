@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#D97757">
+<meta name="apple-mobile-web-app-title" content="Morse">
+<title>Morse à l'oreille</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout : une colonne étroite façon carnet d'opérateur radio ; la lampe de signal est le seul élément lumineux. */
+:root{
+  --bg:#EDF0F4; --surface:#FFFFFF; --ink:#152033; --muted:#5B6577; --line:#D3D9E2;
+  --signal:#2346C8; --signal-soft:#E3E8FB; --lamp:#F2A516; --lamp-off:#C9D0DB;
+  --ok:#1E8A5A; --ok-soft:#DDF1E7; --bad:#C8323A; --bad-soft:#F8E0E1;
+  --f-display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D131D; --surface:#161E2B; --ink:#E5EAF2; --muted:#93A0B4; --line:#283345;
+  --signal:#8DA2FF; --signal-soft:#1F2A4A; --lamp:#FFC247; --lamp-off:#2C3646;
+  --ok:#4CC28A; --ok-soft:#163327; --bad:#FF6B70; --bad-soft:#3A1C20; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D131D; --surface:#161E2B; --ink:#E5EAF2; --muted:#93A0B4; --line:#283345;
+  --signal:#8DA2FF; --signal-soft:#1F2A4A; --lamp:#FFC247; --lamp-off:#2C3646;
+  --ok:#4CC28A; --ok-soft:#163327; --bad:#FF6B70; --bad-soft:#3A1C20; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+.wrap{max-width:560px;margin:0 auto;padding-block:12px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:20px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--signal);outline-offset:2px}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.01em;margin:0;text-wrap:balance;line-height:1.05}
+h1{font-size:2.1rem} h2{font-size:1.7rem} h3{font-size:1.25rem}
+p{margin:0}
+.muted{color:var(--muted)}
+.eyebrow{font-size:.75rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}
+
+/* barre du haut */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}
+.iconbtn{background:none;border:1px solid var(--line);border-radius:10px;min-width:44px;height:44px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:700;font-size:.9rem}
+.brand{display:flex;align-items:center;gap:10px}
+.brand .mini{display:flex;gap:4px;align-items:center}
+
+/* glyphes morse proportionnels : point 1, trait 3, espace 1 */
+.code{display:inline-flex;align-items:center;gap:.42em;font-size:1rem;vertical-align:middle}
+.code i{display:block;height:.42em;background:currentColor;border-radius:.21em}
+.code .dot{width:.42em}
+.code .dash{width:1.26em}
+
+/* lampe de signal */
+.lamp{width:20px;height:20px;border-radius:50%;background:var(--lamp-off);transition:background 30ms,box-shadow 30ms;flex:none}
+.lamp.lit{background:var(--lamp);box-shadow:0 0 0 4px color-mix(in srgb,var(--lamp) 30%,transparent),0 0 24px var(--lamp)}
+.lamp.big{width:112px;height:112px;border:6px solid var(--surface);box-shadow:0 0 0 1px var(--line)}
+.lamp.big.lit{box-shadow:0 0 0 1px var(--line),0 0 0 14px color-mix(in srgb,var(--lamp) 25%,transparent),0 0 60px var(--lamp)}
+
+.btn{border:none;border-radius:12px;padding:14px 18px;font-weight:700;font-size:1rem;background:var(--signal);color:var(--surface);min-height:50px;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.block{width:100%}
+.btn:disabled{opacity:.45;cursor:default}
+
+/* accueil */
+.hero{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.hero .row{display:flex;align-items:center;gap:16px}
+.hero .signs{font-family:var(--f-mono);font-weight:700;font-size:1.5rem;letter-spacing:.18em}
+.levels{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.lvl{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:12px;padding:14px 4px;background:none;border:none;border-bottom:1px solid var(--line);text-align:left;width:100%}
+.lvl:disabled{cursor:default}
+.lvl:disabled .lvl-body,.lvl:disabled .lvl-num{opacity:.4}
+.lvl-num{font-family:var(--f-display);font-size:1.7rem;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.lvl-body{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lvl-signs{font-family:var(--f-mono);font-weight:700;font-size:1.2rem;letter-spacing:.2em}
+.lvl-cat{font-size:.88rem;color:var(--muted)}
+.pips{display:flex;gap:6px}
+.pip{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);display:grid;place-items:center;font-size:.78rem;font-weight:700;color:var(--muted)}
+.pip.ok{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.lock{font-size:.8rem;color:var(--muted)}
+
+/* niveau */
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;align-items:flex-start;text-align:left;min-height:104px}
+.card .ch{font-family:var(--f-mono);font-size:2rem;font-weight:700;line-height:1}
+.card .code{font-size:1.2rem;color:var(--signal)}
+.card.playing{border-color:var(--lamp);box-shadow:0 0 0 2px var(--lamp)}
+.trials{display:flex;flex-direction:column;gap:10px}
+.trialcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;text-align:left;width:100%}
+.trialcard .score{grid-row:span 2;font-family:var(--f-display);font-size:1.6rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted)}
+.trialcard .score.ok{color:var(--ok)}
+.note{font-size:.95rem;max-width:62ch}
+
+/* épreuve */
+.progress{height:6px;background:var(--line);border-radius:3px;overflow:hidden;flex:1}
+.progress i{display:block;height:100%;background:var(--signal);width:0;transition:width .25s}
+.stage{display:flex;flex-direction:column;align-items:center;gap:16px;padding-block:8px}
+.count{font-variant-numeric:tabular-nums;font-weight:700;font-size:.9rem;color:var(--muted);min-width:56px;text-align:right}
+.hint{min-height:1.6em;color:var(--muted);font-size:1.2rem}
+.slots{display:flex;gap:8px;justify-content:center;min-height:62px}
+.slot{width:52px;height:62px;border-radius:12px;border:2px dashed var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-family:var(--f-mono);font-size:1.6rem;font-weight:700;background:var(--surface)}
+.slot.filled{border-style:solid;border-color:var(--signal)}
+.slot.ok{border-style:solid;border-color:var(--ok);background:var(--ok-soft);color:var(--ok)}
+.slot.bad{border-style:solid;border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
+.slot .code{font-size:.45rem}
+.slot small{font-size:.7rem;font-family:var(--f-body)}
+.feedback{min-height:64px;width:100%;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;align-items:center;text-align:center}
+.feedback.ok{background:var(--ok-soft);color:var(--ok)}
+.feedback.bad{background:var(--bad-soft);color:var(--bad)}
+.feedback .line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;color:var(--ink)}
+.feedback b.big{font-family:var(--f-mono);font-size:1.5rem}
+.controls{display:flex;gap:10px;width:100%}
+.controls .btn{flex:1}
+.pad{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:8px}
+.key{height:56px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-family:var(--f-mono);font-size:1.4rem;font-weight:700;touch-action:manipulation}
+.key.new{border:2px solid var(--signal);color:var(--signal)}
+.key:active{transform:translateY(1px)}
+.key.back{font-family:var(--f-body);font-size:1rem;color:var(--muted)}
+
+/* résultat */
+.bigscore{font-family:var(--f-display);font-size:5rem;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.verdict{display:inline-flex;padding:6px 12px;border-radius:999px;font-weight:700;font-size:.9rem}
+.verdict.ok{background:var(--ok-soft);color:var(--ok)}
+.verdict.bad{background:var(--bad-soft);color:var(--bad)}
+.errs{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.err{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.err .ch{font-family:var(--f-mono);font-weight:700;font-size:1.3rem;width:1.4em}
+.err .code{color:var(--signal)}
+
+/* réglages */
+.sheet{position:fixed;inset:0;background:color-mix(in srgb,var(--ink) 40%,transparent);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet-in{background:var(--bg);width:100%;max-width:560px;border-radius:20px 20px 0 0;padding-top:20px;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px;max-height:90%;overflow:auto}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{display:flex;justify-content:space-between;font-weight:700;gap:8px}
+.field output{font-variant-numeric:tabular-nums;color:var(--signal)}
+input[type=range]{width:100%;accent-color:var(--signal)}
+.check{display:flex;gap:12px;align-items:flex-start}
+.check input{width:22px;height:22px;accent-color:var(--signal);flex:none;margin-top:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<!-- ACCUEIL -->
+<section id="v-home">
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div class="top">
+      <div class="brand"><span class="lamp" aria-hidden="true"></span><h1>Morse à l'oreille</h1></div>
+      <button class="iconbtn" id="openSettings" aria-label="Réglages">Réglages</button>
+    </div>
+    <div class="hero" id="hero"></div>
+    <div>
+      <p class="eyebrow" style="margin-bottom:8px">Parcours · 10 niveaux</p>
+      <div class="levels" id="levels"></div>
+    </div>
+    <p class="muted note">Chaque niveau ajoute 4 à 5 signes. On commence par les signes remarquables : éléments identiques, palindromes, puis paires inversées. Un niveau est validé quand ses deux épreuves sont réussies.</p>
+  </div>
+</section>
+
+<!-- NIVEAU -->
+<section id="v-level" hidden>
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div class="top">
+      <button class="iconbtn" data-go="home">← Niveaux</button>
+      <button class="btn ghost" id="playAll" style="min-height:44px;padding:8px 14px">▶ Écouter tout</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <p class="eyebrow" id="lvEyebrow"></p>
+      <h2 id="lvTitle"></h2>
+      <p class="note muted" id="lvNote"></p>
+    </div>
+    <div>
+      <p class="eyebrow" style="margin-bottom:8px">Nouveaux signes · touchez pour écouter</p>
+      <div class="cards" id="lvCards"></div>
+    </div>
+    <div class="trials" id="lvTrials"></div>
+  </div>
+</section>
+
+<!-- ÉPREUVE -->
+<section id="v-trial" hidden>
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="top">
+      <button class="iconbtn" id="quitTrial" aria-label="Quitter l'épreuve">✕</button>
+      <div class="progress"><i id="prog"></i></div>
+      <span class="count" id="count"></span>
+    </div>
+    <p class="eyebrow" id="trialLabel" style="text-align:center"></p>
+    <div class="stage">
+      <div class="lamp big" aria-hidden="true"></div>
+      <div class="hint" id="hint"></div>
+      <div class="slots" id="slots" hidden></div>
+      <div class="feedback" id="feedback"></div>
+      <div class="controls">
+        <button class="btn ghost" id="replay">↻ Réécouter</button>
+        <button class="btn" id="next" hidden>Suivant →</button>
+      </div>
+    </div>
+    <div class="pad" id="pad"></div>
+  </div>
+</section>
+
+<!-- RÉSULTAT -->
+<section id="v-result" hidden>
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div class="top"><button class="iconbtn" data-go="level">← Niveau</button></div>
+    <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+      <p class="eyebrow" id="resLabel"></p>
+      <div class="bigscore" id="resScore"></div>
+      <span class="verdict" id="resVerdict"></span>
+      <p class="muted" id="resInfo"></p>
+    </div>
+    <div id="resErrsWrap">
+      <p class="eyebrow" style="margin-bottom:8px">À retravailler · touchez pour écouter</p>
+      <div class="errs" id="resErrs"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px" id="resActions"></div>
+  </div>
+</section>
+
+</div>
+
+<!-- RÉGLAGES -->
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-in" role="dialog" aria-labelledby="setTitle">
+    <div class="top"><h2 id="setTitle">Réglages</h2><button class="iconbtn" id="closeSettings">Fermer</button></div>
+    <div class="field">
+      <label for="s-wpm">Vitesse <output id="o-wpm"></output></label>
+      <input type="range" id="s-wpm" min="8" max="30" step="1">
+    </div>
+    <div class="field">
+      <label for="s-freq">Tonalité <output id="o-freq"></output></label>
+      <input type="range" id="s-freq" min="400" max="900" step="10">
+    </div>
+    <div class="field">
+      <label for="s-vol">Volume <output id="o-vol"></output></label>
+      <input type="range" id="s-vol" min="0.1" max="1" step="0.05">
+    </div>
+    <button class="btn ghost" id="testSound">▶ Tester : « PARIS »</button>
+    <div class="check"><input type="checkbox" id="s-hint"><label for="s-hint">Afficher les points et traits avant de répondre<br><span class="muted" style="font-size:.88rem">Désactivé par défaut : on apprend à l'oreille, le code s'affiche après la réponse.</span></label></div>
+    <div class="check"><input type="checkbox" id="s-unlock"><label for="s-unlock">Débloquer tous les niveaux</label></div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn ghost" id="reset">Effacer ma progression</button>
+      <button class="btn" id="resetConfirm" hidden style="background:var(--bad)">Confirmer l'effacement</button>
+    </div>
+    <p class="muted" style="font-size:.85rem">Espacements du code respectés : point = 1 unité, trait = 3, entre éléments = 1, entre signes = 3, entre mots = 7.</p>
+  </div>
+</div>
+
+<script>
+const MORSE={A:'.-',B:'-...',C:'-.-.',D:'-..',E:'.',F:'..-.',G:'--.',H:'....',I:'..',J:'.---',K:'-.-',L:'.-..',M:'--',N:'-.',O:'---',P:'.--.',Q:'--.-',R:'.-.',S:'...',T:'-',U:'..-',V:'...-',W:'.--',X:'-..-',Y:'-.--',Z:'--..',
+'0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....','6':'-....','7':'--...','8':'---..','9':'----.',
+'.':'.-.-.-',',':'--..--','?':'..--..','/':'-..-.','=':'-...-'};
+const LEVELS=[
+ {s:'ETIM',cat:'Signes identiques courts',note:'Un ou deux éléments, tous pareils : E un point, I deux points, T un trait, M deux traits.'},
+ {s:'SOH50',cat:'Signes identiques longs',note:'La suite logique : S trois points, H quatre, 5 cinq. O trois traits, 0 cinq traits.'},
+ {s:'KRPX',cat:'Palindromes',note:'Ils sonnent pareil à l\'endroit et à l\'envers : K −·−, R ·−·, P ·−−·, X −··−.'},
+ {s:'ANDU',cat:'Paires inversées · 1',note:'A et N sont le même signe lu à l\'envers, tout comme D et U.'},
+ {s:'BVGW',cat:'Paires inversées · 2',note:'B ↔ V et G ↔ W : chaque signe est le miroir de l\'autre.'},
+ {s:'FLQY',cat:'Paires inversées · 3',note:'F ↔ L et Q ↔ Y. Écoutez bien où tombe l\'élément différent.'},
+ {s:'1928',cat:'Chiffres miroirs · 1',note:'1 et 9 sont miroirs, 2 et 8 aussi. Un chiffre fait toujours cinq éléments.'},
+ {s:'3746',cat:'Chiffres miroirs · 2',note:'3 ↔ 7 et 4 ↔ 6. Vous connaîtrez alors les dix chiffres.'},
+ {s:'C.?,',cat:'Motifs répétés et ponctuation',note:'C répète −·, le point répète ·− trois fois. ? et la virgule sont des palindromes.'},
+ {s:'JZ/=',cat:'Derniers signes',note:'J, Z, la barre oblique et le signe égal (−···−, palindrome utilisé comme séparateur).'}
+];
+const PASS1=90, PASS2=80, N1=20, N2=10;
+const NAMES={'.':'point',',':'virgule','?':'interrogation','/':'barre','=':'égal'};
+
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const settings=Object.assign({wpm:16,freq:600,vol:0.6,hint:false,unlock:false},store.get('morse.settings',{}));
+let progress=store.get('morse.progress',{});
+const $=s=>document.querySelector(s);
+const rand=a=>a[Math.floor(Math.random()*a.length)];
+
+function glyph(c){const code=MORSE[c]||'';return '<span class="code" aria-label="'+code.replace(/\./g,'point ').replace(/-/g,'trait ').trim()+'">'+[...code].map(x=>x==='.'?'<i class="dot"></i>':'<i class="dash"></i>').join('')+'</span>'}
+const passed=n=>{const p=progress[n];return !!p&&(p.t1||0)>=PASS1&&(p.t2||0)>=PASS2};
+const unlocked=n=>settings.unlock||n===1||passed(n-1);
+const knownUpTo=n=>LEVELS.slice(0,n).map(l=>[...l.s]).flat();
+
+/* ---------- audio ---------- */
+let ctx=null,cur=null;
+function ensureCtx(){
+  if(!ctx){const AC=window.AudioContext||window.webkitAudioContext;ctx=new AC();try{if(navigator.audioSession)navigator.audioSession.type='playback'}catch(e){}}
+  if(ctx.state==='suspended')ctx.resume();
+}
+function stopAudio(){if(cur){try{cur.osc.stop()}catch(e){}cur.g.disconnect();clearTimeout(cur.timer);cur=null;setLit(false);clearPlaying()}}
+function play(text,onEnd){
+  ensureCtx();stopAudio();
+  const u=1.2/settings.wpm, r=0.005, vol=settings.vol*0.5;
+  const osc=ctx.createOscillator(), g=ctx.createGain();
+  osc.type='sine';osc.frequency.value=settings.freq;g.gain.value=0;osc.connect(g);g.connect(ctx.destination);
+  const t0=ctx.currentTime+0.06;let t=t0;const segs=[];const chars=[...text];
+  chars.forEach((c,i)=>{
+    if(c===' '){t+=4*u;return} // 3 déjà ajoutées + 4 = 7 unités entre mots
+    const code=MORSE[c];if(!code)return;
+    [...code].forEach((e,j)=>{
+      const d=e==='.'?u:3*u;segs.push([t,t+d]);
+      g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+r);
+      g.gain.setValueAtTime(vol,t+d-r);g.gain.linearRampToValueAtTime(0,t+d);
+      t+=d;if(j<code.length-1)t+=u;
+    });
+    if(i<chars.length-1)t+=3*u; // espace entre signes : 3 unités
+  });
+  osc.start(t0);osc.stop(t+0.05);
+  const me={osc,g,segs,end:t};
+  me.timer=setTimeout(()=>{if(cur===me){cur=null;setLit(false);clearPlaying();onEnd&&onEnd()}},(t-ctx.currentTime)*1000+60);
+  cur=me;requestAnimationFrame(lampLoop);
+}
+function setLit(on){document.querySelectorAll('.lamp').forEach(l=>l.classList.toggle('lit',on))}
+function clearPlaying(){document.querySelectorAll('.playing').forEach(e=>e.classList.remove('playing'))}
+function lampLoop(){if(!cur)return;const now=ctx.currentTime;setLit(cur.segs.some(s=>now>=s[0]&&now<s[1]));requestAnimationFrame(lampLoop)}
+
+/* ---------- navigation ---------- */
+let view='home',curLevel=1;
+function show(v){view=v;['home','level','trial','result'].forEach(x=>$('#v-'+x).hidden=x!==v);window.scrollTo(0,0)}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(!b)return;stopAudio();if(b.dataset.go==='home')renderHome();else renderLevel(curLevel)});
+
+/* ---------- accueil ---------- */
+function renderHome(){
+  const list=$('#levels');list.innerHTML='';
+  let next=LEVELS.findIndex((l,i)=>!passed(i+1))+1;if(next===0)next=LEVELS.length;
+  LEVELS.forEach((L,i)=>{
+    const n=i+1,ok=unlocked(n),p=progress[n]||{};
+    const b=document.createElement('button');b.className='lvl';b.disabled=!ok;
+    b.innerHTML='<span class="lvl-num">'+String(n).padStart(2,'0')+'</span><span class="lvl-body"><span class="lvl-signs">'+[...L.s].join(' ')+'</span><span class="lvl-cat">'+L.cat+'</span></span>'+
+      (ok?'<span class="pips"><span class="pip'+((p.t1||0)>=PASS1?' ok':'')+'" title="Épreuve 1">1</span><span class="pip'+((p.t2||0)>=PASS2?' ok':'')+'" title="Épreuve 2">2</span></span>':'<span class="lock">Verrouillé</span>');
+    b.onclick=()=>renderLevel(n);list.appendChild(b);
+  });
+  const done=LEVELS.filter((l,i)=>passed(i+1)).length, L=LEVELS[next-1];
+  $('#hero').innerHTML='<p class="eyebrow">'+(done===LEVELS.length?'Parcours terminé · révision':done?'À suivre · '+done+' niveau'+(done>1?'x':'')+' validé'+(done>1?'s':''):'Pour commencer')+'</p>'+
+    '<div class="row"><div style="display:flex;flex-direction:column;gap:4px;min-width:0"><h3>Niveau '+next+' · '+L.cat+'</h3><span class="signs">'+[...L.s].join(' ')+'</span></div></div>'+
+    '<button class="btn block" id="goNext">'+(done?'Continuer':'Commencer')+' →</button>';
+  $('#goNext').onclick=()=>renderLevel(next);
+  show('home');
+}
+
+/* ---------- niveau ---------- */
+function renderLevel(n){
+  curLevel=n;const L=LEVELS[n-1],p=progress[n]||{};
+  $('#lvEyebrow').textContent='Niveau '+n+' sur '+LEVELS.length;
+  $('#lvTitle').textContent=L.cat;$('#lvNote').textContent=L.note;
+  const cards=$('#lvCards');cards.innerHTML='';
+  [...L.s].forEach(c=>{const b=document.createElement('button');b.className='card';
+    b.innerHTML='<span class="ch">'+c+'</span>'+glyph(c)+(NAMES[c]?'<span class="muted" style="font-size:.8rem">'+NAMES[c]+'</span>':'');
+    b.onclick=()=>{play(c);b.classList.add('playing')};cards.appendChild(b)});
+  $('#playAll').onclick=()=>play([...L.s].join(' '));
+  const t=$('#lvTrials');t.innerHTML='';
+  [[1,'Épreuve 1 · Signes seuls',N1+' signes à reconnaître · réussite à '+PASS1+' %',p.t1,PASS1],
+   [2,'Épreuve 2 · Groupes',N2+' groupes de 3 ou 4 signes · réussite à '+PASS2+' %',p.t2,PASS2]].forEach(([k,ti,de,sc,th])=>{
+    const b=document.createElement('button');b.className='trialcard';
+    b.innerHTML='<h3>'+ti+'</h3><span class="score'+(sc>=th?' ok':'')+'">'+(sc!=null?sc+' %':'—')+'</span><span class="muted" style="font-size:.9rem">'+de+(n>1?' · inclut les signes déjà appris':'')+'</span>';
+    b.onclick=()=>startTrial(n,k);t.appendChild(b)});
+  show('level');
+}
+
+/* ---------- épreuves ---------- */
+let T=null;
+function pickChar(prev){let c;do{c=(T.pool.length===T.news.length||Math.random()<0.6)?rand(T.news):rand(T.pool)}while(c===prev&&T.pool.length>1);return c}
+function startTrial(n,kind){
+  const news=[...LEVELS[n-1].s],pool=knownUpTo(n);
+  T={n,kind,news,pool,i:0,items:[],log:[],state:'listen',input:[]};
+  if(kind===1){let p=null;for(let i=0;i<N1;i++){p=pickChar(p);T.items.push(p)}}
+  else for(let i=0;i<N2;i++){const len=Math.random()<0.5?3:4;let g='',p=null;for(let j=0;j<len;j++){p=pickChar(p);g+=p}T.items.push(g)}
+  $('#trialLabel').textContent='Niveau '+n+' · '+(kind===1?'Épreuve 1 · Signes seuls':'Épreuve 2 · Groupes');
+  const pad=$('#pad');pad.innerHTML='';
+  pool.forEach(c=>{const b=document.createElement('button');b.className='key'+(news.includes(c)?' new':'');b.textContent=c;b.setAttribute('aria-label',NAMES[c]||c);b.onclick=()=>answer(c);pad.appendChild(b)});
+  if(kind===2){const b=document.createElement('button');b.className='key back';b.textContent='⌫';b.setAttribute('aria-label','Effacer');b.onclick=backspace;pad.appendChild(b)}
+  $('#slots').hidden=kind!==2;
+  show('trial');ask();
+}
+function ask(){
+  T.state='listen';T.input=[];
+  const item=T.items[T.i];
+  $('#prog').style.width=(T.i/T.items.length*100)+'%';
+  $('#count').textContent=(T.i+1)+' / '+T.items.length;
+  $('#feedback').className='feedback';$('#feedback').innerHTML='<span class="muted">'+(T.kind===1?'Quel signe avez-vous entendu ?':'Tapez les signes dans l\'ordre.')+'</span>';
+  $('#next').hidden=true;
+  $('#hint').innerHTML=settings.hint?[...item].map(glyph).join('<span style="display:inline-block;width:1.2em"></span>'):'';
+  renderSlots();
+  setTimeout(()=>play(item),250);
+}
+function renderSlots(res){
+  if(T.kind!==2)return;const item=T.items[T.i];
+  $('#slots').innerHTML=[...item].map((c,i)=>{
+    const v=T.input[i];
+    if(res)return '<div class="slot '+(v===c?'ok':'bad')+'">'+(v||'·')+'</div>';
+    return '<div class="slot'+(v?' filled':'')+'">'+(v||'')+'</div>'}).join('');
+}
+function answer(c){
+  if(T.state!=='listen'){if(T.state==='shown'&&T.kind===1)return;return}
+  const item=T.items[T.i];
+  if(T.kind===1){
+    stopAudio();T.state='shown';const ok=c===item;T.log.push({exp:item,got:c});
+    const fb=$('#feedback');
+    if(ok){fb.className='feedback ok';fb.innerHTML='<strong>Juste</strong><div class="line"><b class="big">'+item+'</b>'+glyph(item)+'</div>';setTimeout(advance,850)}
+    else{fb.className='feedback bad';fb.innerHTML='<strong>C\'était '+item+'</strong><div class="line"><b class="big">'+item+'</b>'+glyph(item)+'<span class="muted">· vous : <b>'+c+'</b></span>'+glyph(c)+'</div>';
+      $('#next').hidden=false;setTimeout(()=>play(item),300)}
+  }else{
+    T.input.push(c);renderSlots();
+    if(T.input.length===item.length){
+      stopAudio();T.state='shown';renderSlots(true);
+      const good=[...item].filter((x,i)=>T.input[i]===x).length;T.log.push({exp:item,got:T.input.join(''),good});
+      const fb=$('#feedback');fb.className='feedback '+(good===item.length?'ok':'bad');
+      fb.innerHTML='<strong>'+(good===item.length?'Groupe juste':good+' sur '+item.length)+'</strong><div class="line">'+[...item].map(x=>'<span style="display:inline-flex;gap:6px;align-items:center"><b>'+x+'</b>'+glyph(x)+'</span>').join('<span class="muted">|</span>')+'</div>';
+      $('#next').hidden=false;
+    }
+  }
+}
+function backspace(){if(T&&T.state==='listen'&&T.kind===2){T.input.pop();renderSlots()}}
+function advance(){T.i++;if(T.i>=T.items.length)finish();else ask()}
+$('#next').onclick=()=>{if(T&&T.state==='shown')advance()};
+$('#replay').onclick=()=>T&&play(T.items[T.i]);
+$('#quitTrial').onclick=()=>{stopAudio();T=null;renderLevel(curLevel)};
+
+function finish(){
+  stopAudio();const kind=T.kind,n=T.n;
+  let pct,errs={};
+  if(kind===1){const good=T.log.filter(l=>l.exp===l.got).length;pct=Math.round(good/T.log.length*100);
+    T.log.forEach(l=>{if(l.exp!==l.got)(errs[l.exp]=errs[l.exp]||[]).push(l.got)})}
+  else{let tot=0,good=0;T.log.forEach(l=>{tot+=l.exp.length;good+=l.good;[...l.exp].forEach((x,i)=>{if(l.got[i]!==x)(errs[x]=errs[x]||[]).push(l.got[i])})});pct=Math.round(good/tot*100)}
+  const th=kind===1?PASS1:PASS2,ok=pct>=th,wasPassed=passed(n);
+  progress[n]=progress[n]||{};const key='t'+kind;if(progress[n][key]==null||pct>progress[n][key])progress[n][key]=pct;store.set('morse.progress',progress);
+  $('#resLabel').textContent='Niveau '+n+' · Épreuve '+kind+(kind===1?' · Signes seuls':' · Groupes');
+  $('#resScore').textContent=pct+' %';
+  const v=$('#resVerdict');v.className='verdict '+(ok?'ok':'bad');v.textContent=ok?'Épreuve réussie':'Pas encore : il faut '+th+' %';
+  $('#resInfo').textContent=kind===1?T.log.filter(l=>l.exp===l.got).length+' signes justes sur '+T.log.length+'.':'Score calculé signe par signe sur '+T.log.length+' groupes.';
+  const keys=Object.keys(errs).sort((a,b)=>errs[b].length-errs[a].length);
+  $('#resErrsWrap').hidden=!keys.length;
+  $('#resErrs').innerHTML='';
+  keys.forEach(k=>{const confused={};errs[k].forEach(g=>{confused[g]=(confused[g]||0)+1});
+    const b=document.createElement('button');b.className='err';b.style.cssText='background:none;border:none;border-bottom:1px solid var(--line);text-align:left;width:100%';
+    b.innerHTML='<span class="ch">'+k+'</span>'+glyph(k)+'<span class="muted" style="font-size:.9rem;margin-left:auto">'+errs[k].length+' erreur'+(errs[k].length>1?'s':'')+' · pris pour '+Object.keys(confused).map(g=>'<b>'+g+'</b>').join(', ')+'</span>';
+    b.onclick=()=>play(k);$('#resErrs').appendChild(b)});
+  const a=$('#resActions');a.innerHTML='';
+  const add=(label,cls,fn)=>{const b=document.createElement('button');b.className='btn block'+(cls?' '+cls:'');b.textContent=label;b.onclick=fn;a.appendChild(b)};
+  if(kind===1&&ok)add('Passer à l\'épreuve 2 →','',()=>startTrial(n,2));
+  if(kind===2&&passed(n)&&n<LEVELS.length)add((wasPassed?'':'Niveau validé · ')+'Niveau '+(n+1)+' →','',()=>renderLevel(n+1));
+  if(kind===2&&ok&&!passed(n))add('Refaire l\'épreuve 1','',()=>startTrial(n,1));
+  add('Recommencer cette épreuve',ok?'ghost':'',()=>startTrial(n,kind));
+  add('Retour au niveau','ghost',()=>renderLevel(n));
+  T=null;show('result');
+}
+
+/* clavier physique */
+document.addEventListener('keydown',e=>{
+  if(view!=='trial'||!T||e.metaKey||e.ctrlKey)return;
+  if(e.key===' '){e.preventDefault();play(T.items[T.i]);return}
+  if(e.key==='Enter'){if(T.state==='shown')advance();return}
+  if(e.key==='Backspace'){backspace();return}
+  const k=e.key.toUpperCase();if(T.pool.includes(k))answer(k);
+});
+
+/* ---------- réglages ---------- */
+function syncSettingsUI(){
+  $('#s-wpm').value=settings.wpm;$('#o-wpm').textContent=settings.wpm+' mots/min · point = '+Math.round(1200/settings.wpm)+' ms';
+  $('#s-freq').value=settings.freq;$('#o-freq').textContent=settings.freq+' Hz';
+  $('#s-vol').value=settings.vol;$('#o-vol').textContent=Math.round(settings.vol*100)+' %';
+  $('#s-hint').checked=settings.hint;$('#s-unlock').checked=settings.unlock;
+}
+function saveSettings(){store.set('morse.settings',settings);syncSettingsUI()}
+$('#s-wpm').oninput=e=>{settings.wpm=+e.target.value;saveSettings()};
+$('#s-freq').oninput=e=>{settings.freq=+e.target.value;saveSettings()};
+$('#s-vol').oninput=e=>{settings.vol=+e.target.value;saveSettings()};
+$('#s-hint').onchange=e=>{settings.hint=e.target.checked;saveSettings()};
+$('#s-unlock').onchange=e=>{settings.unlock=e.target.checked;saveSettings()};
+$('#testSound').onclick=()=>play('PARIS');
+$('#openSettings').onclick=()=>{syncSettingsUI();$('#resetConfirm').hidden=true;$('#sheet').hidden=false};
+$('#closeSettings').onclick=()=>{$('#sheet').hidden=true;renderHome()};
+$('#sheet').onclick=e=>{if(e.target.id==='sheet'){$('#sheet').hidden=true;renderHome()}};
+$('#reset').onclick=()=>{$('#resetConfirm').hidden=false};
+$('#resetConfirm').onclick=()=>{progress={};store.set('morse.progress',progress);$('#resetConfirm').hidden=true;$('#reset').textContent='Progression effacée'};
+
+renderHome();
+</script>
+</body>
+</html>

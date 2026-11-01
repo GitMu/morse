@@ -1,0 +1,13 @@
+{
+  "name": "Morse à l'oreille",
+  "short_name": "Morse",
+  "start_url": "morse.html",
+  "display": "standalone",
+  "background_color": "#EDF0F4",
+  "theme_color": "#D97757",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
